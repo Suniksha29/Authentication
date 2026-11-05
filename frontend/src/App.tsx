@@ -25,29 +25,6 @@ const queryClient = new QueryClient({
   },
 });
 
-const HomeRoute: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
-          <span className="text-[12px] font-medium text-slate-500 tracking-wide uppercase">
-            Loading Workspace...
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <LandingPage />;
-};
-
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedRoles?: Array<'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE'>;
@@ -87,7 +64,7 @@ export const App: React.FC = () => {
           <BrowserRouter>
             <Routes>
               {/* Public Landing & Authentication */}
-              <Route path="/" element={<HomeRoute />} />
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<LoginPage />} />
               <Route path="/verify-email" element={<LoginPage />} />
