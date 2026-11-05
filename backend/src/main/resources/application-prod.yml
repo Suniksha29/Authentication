@@ -1,0 +1,16 @@
+server:
+  forward-headers-strategy: native
+
+spring:
+  session:
+    store-type: redis
+
+meridian:
+  demo-mode: false
+
+logging:
+  level:
+    root: INFO
+    com.meridian: INFO
+    org.springframework.security: WARN
+

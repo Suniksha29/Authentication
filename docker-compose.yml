@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # PostgreSQL Database Service
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: meridian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-meridian}
+      POSTGRES_USER: ${DB_USER:-meridian_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-meridian_secure_pass_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-meridian_user} -d ${DB_NAME:-meridian}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - meridian-net
+
+  # ============================================================================
+  # Redis Distributed Session Store
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: meridian-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-meridian_redis_pass_2026}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-meridian_redis_pass_2026}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - meridian-net
+
+  # ============================================================================
+  # Meridian Application (Spring Boot 3 + React 18 Embedded)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meridian-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-meridian}
+      DB_USER: ${DB_USER:-meridian_user}
+      DB_PASSWORD: ${DB_PASSWORD:-meridian_secure_pass_2026}
+      # Redis Session Store
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-meridian_redis_pass_2026}
+      SESSION_STORE_TYPE: redis
+      # Google OAuth 2.0 / OpenID Connect credentials
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Meridian Authorization Policies
+      ALLOWED_DOMAIN: ${ALLOWED_DOMAIN:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@meridian.internal}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - meridian-net
+
+volumes:
+  postgres-data:
+    name: meridian-postgres-data
+  redis-data:
+    name: meridian-redis-data
+
+networks:
+  meridian-net:
+    name: meridian-internal-network
+    driver: bridge
+

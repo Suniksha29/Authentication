@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-canvas: #fafaf8;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f4f4ee;
+  --bg-hover: #f1f1eb;
+  --bg-active: #e7e7de;
+
+  --border-hairline: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+
+  --text-primary: #0b0d11;
+  --text-secondary: #4c5468;
+  --text-muted: #828a9c;
+  --text-inverse: #fafaf8;
+
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-subtle: #fff7ed;
+
+  --radius-default: 6px;
+}
+
+.dark {
+  --bg-canvas: #07090c;
+  --bg-surface: #0b0d11;
+  --bg-surface-elevated: #12151d;
+  --bg-hover: #191d27;
+  --bg-active: #222632;
+
+  --border-hairline: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #f4f4ee;
+  --text-secondary: #9aa1b2;
+  --text-muted: #5f6677;
+  --text-inverse: #07090c;
+
+  --accent: #ea580c;
+  --accent-hover: #f97316;
+  --accent-subtle: rgba(234, 88, 12, 0.12);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--text-primary);
+  background-color: var(--bg-canvas);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Fluid display heading */
+.fluid-display {
+  font-size: clamp(2.4rem, 4.5vw + 1rem, 4.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.fluid-h2 {
+  font-size: clamp(1.8rem, 2.8vw + 0.5rem, 3rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+/* Noise overlay utility */
+.noise-overlay {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+.dark .noise-overlay {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Tabular figures for numbers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom focus ring */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Micro-animations */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.92); }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #222632;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

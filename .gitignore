@@ -1,0 +1,31 @@
+# Maven
+target/
+*.jar
+*.war
+
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+
+# Environment and Secrets
+.env
+.env.local
+
+# Database & Runtime
+data/
+*.db
+*.log
+
+# IDE & OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+chrome-temp*/
+chrome-temp/
+chrome-temp-reg/
+edge-temp/
+login-desktop.png
+
