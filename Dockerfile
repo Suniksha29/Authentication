@@ -13,7 +13,11 @@ RUN mvn -f backend/pom.xml clean package -DskipTests -B
 FROM eclipse-temurin:17-jre-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S meridian && adduser -S meridian -G meridian
+RUN addgroup -S meridian && adduser -S meridian -G meridian \
+    && mkdir -p /app/data \
+    && chown -R meridian:meridian /app \
+    && chmod -R 775 /app
+
 COPY --from=builder --chown=meridian:meridian /build/backend/target/meridian-backend-1.0.0.jar app.jar
 RUN apk add --no-cache curl
 USER meridian:meridian

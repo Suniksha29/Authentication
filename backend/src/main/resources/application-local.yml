@@ -1,7 +1,7 @@
 # Local standalone profile for immediate developer execution
 spring:
   datasource:
-    url: jdbc:h2:file:./data/meridiandb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/meridiandb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE}
     driver-class-name: org.h2.Driver
     username: sa
     password:
