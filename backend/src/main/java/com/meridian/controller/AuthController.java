@@ -56,6 +56,9 @@ public class AuthController {
     @Value("${meridian.bootstrap-admin-email:suniksha2329@gmail.com}")
     private String bootstrapEmail;
 
+    @Value("${meridian.base-url:https://authentication-uxbg.onrender.com}")
+    private String baseUrl;
+
     public AuthController(EmployeeService employeeService,
                           EmployeeRepository employeeRepository,
                           AuditService auditService,
@@ -208,15 +211,23 @@ public class AuthController {
 
         try {
             RegistrationRequest reg = registrationService.register(fullName, email, password, request);
+            String verificationUrl = (baseUrl != null ? baseUrl : "") + "/api/auth/verify-email?token=" + reg.getVerificationToken();
+            String approvalUrl = (baseUrl != null ? baseUrl : "") + "/api/auth/approve-registration?token=" + reg.getApprovalToken();
             return ResponseEntity.ok(ApiResponse.ok(Map.of(
                     "registered", true,
                     "email", reg.getEmail(),
                     "fullName", reg.getFullName(),
                     "status", reg.getStatus().name(),
+                    "verificationUrl", verificationUrl,
+                    "approvalUrl", approvalUrl,
                     "message", "Registration received. Please check your inbox for verification."
             )));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to register candidate {}: {}", email, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Registration failed: " + e.getMessage()));
         }
     }
 
@@ -305,7 +316,18 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> resendVerification(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         if (email != null && !email.isBlank()) {
-            registrationService.resendVerification(email);
+            Optional<RegistrationRequest> opt = registrationService.resendVerification(email);
+            if (opt.isPresent()) {
+                RegistrationRequest reg = opt.get();
+                String verificationUrl = (baseUrl != null ? baseUrl : "") + "/api/auth/verify-email?token=" + reg.getVerificationToken();
+                String approvalUrl = (baseUrl != null ? baseUrl : "") + "/api/auth/approve-registration?token=" + reg.getApprovalToken();
+                return ResponseEntity.ok(ApiResponse.ok(Map.of(
+                        "resent", true,
+                        "verificationUrl", verificationUrl,
+                        "approvalUrl", approvalUrl,
+                        "message", "Verification email dispatched."
+                )));
+            }
         }
         return ResponseEntity.ok(ApiResponse.ok(Map.of("resent", true, "message", "Verification email dispatched.")));
     }

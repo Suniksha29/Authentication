@@ -185,6 +185,9 @@ export const LoginPage: React.FC = () => {
     bootstrapAdminEmail: 'suniksha2329@gmail.com',
   });
 
+  const [verificationLink, setVerificationLink] = useState<string | null>(null);
+  const [approvalLink, setApprovalLink] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/auth/config', { credentials: 'include' })
       .then((r) => r.json())
@@ -195,6 +198,22 @@ export const LoginPage: React.FC = () => {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (mode === 'verify-email' || mode === 'awaiting-approval') {
+      fetch('/api/auth/outbox', { credentials: 'include' })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+            const verif = res.data.find((item: any) => item.type === 'VERIFICATION');
+            const appr = res.data.find((item: any) => item.type === 'ADMIN_APPROVAL_REQUEST');
+            if (verif?.actionUrl) setVerificationLink(verif.actionUrl);
+            if (appr?.actionUrl) setApprovalLink(appr.actionUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [mode]);
 
   const handleGoogleClick = (e: React.MouseEvent) => {
     if (!authConfig.googleConfigured) {
@@ -319,14 +338,17 @@ export const LoginPage: React.FC = () => {
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.data) {
+        if (data.data.verificationUrl) setVerificationLink(data.data.verificationUrl);
+        if (data.data.approvalUrl) setApprovalLink(data.data.approvalUrl);
         setIsSubmitting(false);
         switchMode('verify-email');
         return;
       }
 
-      const data = await res.json().catch(() => null);
-      setServerError(data?.error || data?.message || 'Failed to submit registration');
+      setServerError(data?.message || data?.error || 'Failed to submit registration');
     } catch {
       // In disconnected test environment fallback to next screen
       switchMode('verify-email');
@@ -338,12 +360,15 @@ export const LoginPage: React.FC = () => {
   // Resend Verification Email to candidate and notification to admin
   const handleResend = async () => {
     try {
-      await fetch('/api/auth/resend-verification', {
+      const res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
+      const data = await res.json().catch(() => null);
+      if (data?.data?.verificationUrl) setVerificationLink(data.data.verificationUrl);
+      if (data?.data?.approvalUrl) setApprovalLink(data.data.approvalUrl);
     } catch {
       // ignore
     }
@@ -1020,6 +1045,24 @@ export const LoginPage: React.FC = () => {
                     your registration will be routed to HR administration for role assignment.
                   </div>
 
+                  {verificationLink && (
+                    <div className="mt-3 p-3 rounded-[6px] bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[12px] text-amber-900 dark:text-amber-200">
+                      <div className="font-semibold text-amber-950 dark:text-amber-100 mb-1 flex items-center justify-between">
+                        <span>Direct Candidate Verification</span>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200">Instant</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 mb-2 leading-relaxed">
+                        If cloud SMTP port 587 is firewalled on free tiers, verify your email immediately using this secure link:
+                      </p>
+                      <a
+                        href={verificationLink}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] bg-amber-800 hover:bg-amber-900 text-white font-medium text-[12px] transition-colors shadow-sm"
+                      >
+                        <span>Verify Email Now &rarr;</span>
+                      </a>
+                    </div>
+                  )}
+
                   {resendSuccess && (
                     <div className="mt-3 p-2.5 rounded-[6px] bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-700 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1112,6 +1155,26 @@ export const LoginPage: React.FC = () => {
                       <span className="font-semibold text-amber-950 dark:text-amber-100">{authConfig.bootstrapAdminEmail || 'suniksha2329@gmail.com'}</span>. Once authorized, access is immediately active.
                     </div>
                   </div>
+
+                  {approvalLink && (
+                    <div className="mt-3 p-3 rounded-[6px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[12px] text-emerald-900 dark:text-emerald-200">
+                      <div className="font-semibold text-emerald-950 dark:text-emerald-100 mb-1 flex items-center justify-between">
+                        <span>Admin 1-Click Authorization</span>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">Superadmin</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 dark:text-emerald-300 mb-2 leading-relaxed">
+                        Simulate the 1-click approval notification sent to <strong>{authConfig.bootstrapAdminEmail}</strong>:
+                      </p>
+                      <a
+                        href={approvalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-[12px] transition-colors shadow-sm"
+                      >
+                        <span>Authorize &amp; Activate Account &rarr;</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">

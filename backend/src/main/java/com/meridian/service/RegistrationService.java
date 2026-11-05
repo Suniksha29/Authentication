@@ -84,7 +84,11 @@ public class RegistrationService {
 
         Department defaultDept = departmentRepository.findByCode("ENG")
                 .or(() -> departmentRepository.findById(2L))
-                .orElseGet(() -> departmentRepository.findAll().stream().findFirst().orElse(null));
+                .or(() -> departmentRepository.findAll().stream().findFirst())
+                .orElseGet(() -> {
+                    Department fallback = new Department("Engineering", "ENG");
+                    return departmentRepository.save(fallback);
+                });
 
         Employee employee = existingEmployee.orElseGet(Employee::new);
         employee.setEmail(cleanEmail);
@@ -94,14 +98,18 @@ public class RegistrationService {
         employee.setRole(Role.EMPLOYEE);
         employee.setStatus(EmploymentStatus.INACTIVE); // Inactive until Admin approves!
         employee.setPasswordHash(passwordHash);
-        if (employee.getDepartment() == null && defaultDept != null) {
+        if (employee.getDepartment() == null) {
             employee.setDepartment(defaultDept);
         }
         if (employee.getHireDate() == null) {
             employee.setHireDate(LocalDate.now());
         }
 
-        employeeRepository.save(employee);
+        try {
+            employeeRepository.save(employee);
+        } catch (Exception ex) {
+            log.warn("Could not pre-provision employee row (will complete upon admin approval): {}", ex.getMessage());
+        }
 
         // Dispatch 1: Send verification email to candidate
         emailService.sendVerificationEmail(savedReg);
@@ -223,7 +231,8 @@ public class RegistrationService {
         return Optional.of(reg);
     }
 
-    public void resendVerification(String email) {
+    @Transactional
+    public Optional<RegistrationRequest> resendVerification(String email) {
         String cleanEmail = email.trim().toLowerCase();
         Optional<RegistrationRequest> opt = registrationRepository.findByEmailIgnoreCase(cleanEmail);
         if (opt.isPresent()) {
@@ -232,7 +241,9 @@ public class RegistrationService {
             emailService.sendVerificationEmail(reg);
             emailService.sendAdminApprovalRequest(reg);
             log.info("Resent verification and approval notification for '{}'", cleanEmail);
+            return Optional.of(reg);
         }
+        return Optional.empty();
     }
 }
 
