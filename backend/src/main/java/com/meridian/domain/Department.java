@@ -22,6 +22,10 @@ public class Department {
 
     public Department() {}
 
+    public Department(String name, String code) {
+        this(null, name, code);
+    }
+
     public Department(Long id, String name, String code) {
         this.id = id;
         this.name = name;
