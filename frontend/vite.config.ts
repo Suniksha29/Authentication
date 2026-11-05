@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: './src/tests/setup.ts',
   },
   build: {
-    outDir: '../backend/src/main/resources/static',
+    outDir: 'dist',
     emptyOutDir: true,
     manifest: false,
     rollupOptions: {
