@@ -22,3 +22,5 @@ services:
         value: suniksha2329@gmail.com
       - key: MAIL_PASSWORD
         sync: false
+      - key: BREVO_API_KEY
+        sync: false
