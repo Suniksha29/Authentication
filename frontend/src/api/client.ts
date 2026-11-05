@@ -157,7 +157,7 @@ async function fetchWithCsrf(url: string, options: RequestInit = {}): Promise<Re
   const response = await fetch(url, {
     ...options,
     headers,
-    credentials: 'same-origin',
+    credentials: 'include',
   });
 
   return response;

@@ -186,7 +186,7 @@ export const LoginPage: React.FC = () => {
   });
 
   useEffect(() => {
-    fetch('/api/auth/config')
+    fetch('/api/auth/config', { credentials: 'include' })
       .then((r) => r.json())
       .then((res) => {
         if (res?.data) {
@@ -205,6 +205,7 @@ export const LoginPage: React.FC = () => {
       setIsSubmitting(true);
       fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-XSRF-TOKEN': document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)?.[1] || '',
@@ -253,6 +254,7 @@ export const LoginPage: React.FC = () => {
       const xsrfMatch = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'X-XSRF-TOKEN': xsrfMatch ? decodeURIComponent(xsrfMatch[1]) : '',
@@ -306,6 +308,7 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -337,6 +340,7 @@ export const LoginPage: React.FC = () => {
     try {
       await fetch('/api/auth/resend-verification', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });

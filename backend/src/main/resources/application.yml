@@ -95,6 +95,7 @@ spring:
             issuer-uri: https://accounts.google.com
 
 meridian:
+  base-url: ${BASE_URL:https://authentication-uxbg.onrender.com}
   allowed-domain: ${ALLOWED_DOMAIN:}
   bootstrap-admin-email: ${BOOTSTRAP_ADMIN_EMAIL:admin@meridian.internal}
   session-idle-timeout-minutes: 30
