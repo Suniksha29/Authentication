@@ -1,5 +1,6 @@
 package com.meridian.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.domain.RegistrationRequest;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -9,6 +10,14 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -36,6 +45,20 @@ public class EmailService {
 
     @Value("${meridian.base-url:http://localhost:8082}")
     private String baseUrl;
+
+    @Value("${resend.api-key:${RESEND_API_KEY:}}")
+    private String resendApiKey;
+
+    @Value("${brevo.api-key:${BREVO_API_KEY:}}")
+    private String brevoApiKey;
+
+    @Value("${email.webhook-url:${EMAIL_WEBHOOK_URL:}}")
+    private String emailWebhookUrl;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public EmailService(EmailOutboxService outboxService) {
         this.outboxService = outboxService;
@@ -108,6 +131,46 @@ public class EmailService {
         String emailId = UUID.randomUUID().toString();
         String deliveryMethod = "Local Dispatch Outbox (Ready for review)";
 
+        // Priority 1: Resend HTTPS API (Free 3000/mo, uses port 443 - never blocked by Render)
+        if (resendApiKey != null && !resendApiKey.isBlank()) {
+            try {
+                sendViaResend(to, subject, html);
+                deliveryMethod = "Delivered via Resend HTTPS API";
+                log.info("[EMAIL SENT] Successfully dispatched real email via Resend to '{}' [Subject: '{}']", to, subject);
+                outboxService.record(emailId, to, subject, type, actionUrl, preview, deliveryMethod);
+                return;
+            } catch (Exception e) {
+                log.error("[RESEND API ERROR] Failed to send via Resend to '{}': {}. Falling back to next channel.", to, e.getMessage());
+            }
+        }
+
+        // Priority 2: Brevo HTTPS API (Free 300/day, uses port 443 - never blocked by Render)
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            try {
+                sendViaBrevo(to, subject, html);
+                deliveryMethod = "Delivered via Brevo HTTPS API";
+                log.info("[EMAIL SENT] Successfully dispatched real email via Brevo to '{}' [Subject: '{}']", to, subject);
+                outboxService.record(emailId, to, subject, type, actionUrl, preview, deliveryMethod);
+                return;
+            } catch (Exception e) {
+                log.error("[BREVO API ERROR] Failed to send via Brevo to '{}': {}. Falling back to next channel.", to, e.getMessage());
+            }
+        }
+
+        // Priority 3: Google Apps Script / Custom HTTPS Webhook (Free, uses port 443 - never blocked by Render)
+        if (emailWebhookUrl != null && !emailWebhookUrl.isBlank()) {
+            try {
+                sendViaWebhook(to, subject, html);
+                deliveryMethod = "Delivered via HTTPS Webhook";
+                log.info("[EMAIL SENT] Successfully dispatched real email via Webhook to '{}' [Subject: '{}']", to, subject);
+                outboxService.record(emailId, to, subject, type, actionUrl, preview, deliveryMethod);
+                return;
+            } catch (Exception e) {
+                log.error("[WEBHOOK API ERROR] Failed to send via Webhook to '{}': {}. Falling back to SMTP.", to, e.getMessage());
+            }
+        }
+
+        // Priority 4: SMTP (Works locally or on paid cloud plans)
         if (isSmtpConfigured()) {
             try {
                 String cleanPassword = mailPassword != null ? mailPassword.replaceAll("\\s+", "").trim() : "";
@@ -148,6 +211,75 @@ public class EmailService {
         }
 
         outboxService.record(emailId, to, subject, type, actionUrl, preview, deliveryMethod);
+    }
+
+    private void sendViaResend(String to, String subject, String html) throws Exception {
+        Map<String, Object> payload = Map.of(
+                "from", "Meridian Portal <onboarding@resend.dev>",
+                "to", List.of(to.trim()),
+                "subject", subject,
+                "html", html
+        );
+        String body = objectMapper.writeValueAsString(payload);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.resend.com/emails"))
+                .header("Authorization", "Bearer " + resendApiKey.trim())
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+            throw new RuntimeException("Resend API returned HTTP " + resp.statusCode() + ": " + resp.body());
+        }
+    }
+
+    private void sendViaBrevo(String to, String subject, String html) throws Exception {
+        String senderEmail = (mailUsername != null && !mailUsername.isBlank()) ? mailUsername.trim() : "suniksha2329@gmail.com";
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of("name", "Meridian Portal", "email", senderEmail),
+                "to", List.of(Map.of("email", to.trim())),
+                "subject", subject,
+                "htmlContent", html
+        );
+        String body = objectMapper.writeValueAsString(payload);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                .header("api-key", brevoApiKey.trim())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+            throw new RuntimeException("Brevo API returned HTTP " + resp.statusCode() + ": " + resp.body());
+        }
+    }
+
+    private void sendViaWebhook(String to, String subject, String html) throws Exception {
+        Map<String, Object> payload = Map.of(
+                "to", to.trim(),
+                "subject", subject,
+                "html", html
+        );
+        String body = objectMapper.writeValueAsString(payload);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(emailWebhookUrl.trim()))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+            throw new RuntimeException("Email Webhook returned HTTP " + resp.statusCode() + ": " + resp.body());
+        }
     }
 
     private String buildVerificationEmailHtml(String fullName, String email, String url) {
