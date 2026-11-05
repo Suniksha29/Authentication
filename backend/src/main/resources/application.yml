@@ -9,7 +9,8 @@ server:
       cookie:
         name: SESSION
         http-only: true
-        same-site: Lax
+        same-site: ${COOKIE_SAME_SITE:Lax}
+        secure: ${COOKIE_SECURE:false}
 
 spring:
   application:

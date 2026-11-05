@@ -1,5 +1,6 @@
 # ==============================================================================
 # Multi-Stage Production Dockerfile for Meridian Enterprise Portal
+# Compatible with Render, Railway, Fly.io, and Local Docker
 # ==============================================================================
 
 # Stage 1: Build React 18 + TypeScript SPA
@@ -18,12 +19,9 @@ WORKDIR /build
 
 COPY pom.xml ./
 COPY backend/pom.xml backend/pom.xml
-# Download dependencies for layer caching
-RUN mvn -f backend/pom.xml dependency:go-offline -B
-
 COPY backend/src backend/src
 # Copy compiled frontend static assets from Stage 1 into Spring static resources
-COPY --from=frontend-builder /build/backend/src/main/resources/static backend/src/main/resources/static
+COPY --from=frontend-builder /build/frontend/dist backend/src/main/resources/static
 
 RUN mvn -f backend/pom.xml clean package -DskipTests -B
 
@@ -41,20 +39,17 @@ WORKDIR /app
 # Copy executable jar from builder stage
 COPY --from=backend-builder --chown=meridian:meridian /build/backend/target/meridian-backend-1.0.0.jar app.jar
 
-# Install curl for Docker health check
+# Install curl for health check
 RUN apk add --no-cache curl
 
 # Drop privileges to non-root user
 USER meridian:meridian
 
-EXPOSE 8080
+EXPOSE 8082 10000
 
-# Production JVM ergonomics: memory container limits, GC optimization
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
 
-# Container healthcheck querying Actuator health endpoint
 HEALTHCHECK --interval=20s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8082}/actuator/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
-
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Dserver.port=${PORT:-8082} -jar app.jar"]

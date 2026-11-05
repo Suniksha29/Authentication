@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: authentication-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: local
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        value: suniksha2329@gmail.com
+      - key: DEMO_MODE
+        value: "true"
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: suniksha2329@gmail.com
+      - key: MAIL_PASSWORD
+        sync: false
+
